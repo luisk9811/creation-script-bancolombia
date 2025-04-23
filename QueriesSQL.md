@@ -6,7 +6,11 @@
 
 **Consulta SQL:**
 ```sql
-
+SELECT  A.id_cliente, A.cedula, A.nombre, COUNT(B.num_cuenta) AS cantidad_cuentas, SUM(B.saldo) AS saldo_total
+FROM cliente A JOIN cuenta B ON A.id_cliente = B.id_cliente
+GROUP BY A.id_cliente, A.cedula, A.nombre
+HAVING COUNT(B.num_cuenta) > 1
+ORDER BY saldo_total DESC;
 ```
 
 ## Enunciado 2: Comparativa entre depósitos y retiros por cliente
@@ -15,7 +19,18 @@
 
 **Consulta SQL:**
 ```sql
-
+SELECT
+    A.id_cliente,
+    A.cedula,
+    A.nombre, 
+    SUM(CASE WHEN C.tipo_transaccion = 'deposito' THEN C.monto ELSE 0 END) AS total_depositos,
+    SUM(CASE WHEN C.tipo_transaccion = 'retiro' THEN C.monto ELSE 0 END) AS total_retiros
+FROM
+    cliente A 
+    JOIN cuenta B ON A.id_cliente = B.id_cliente
+    JOIN transaccion C ON B.num_cuenta = C.num_cuenta
+GROUP BY A.id_cliente, A.cedula, A.nombre
+ORDER BY A.id_cliente;
 ```
 
 ## Enunciado 3: Cuentas sin tarjetas asociadas
@@ -24,7 +39,12 @@
 
 **Consulta SQL:**
 ```sql
-
+SELECT A.id_cliente, C.nombre, A.num_cuenta
+FROM
+    cuenta A
+    JOIN cliente C ON A.id_cliente = C.id_cliente
+    LEFT JOIN tarjeta B ON A.num_cuenta = B.num_cuenta
+WHERE B.num_cuenta IS NULL;
 ```
 
 ## Enunciado 4: Análisis de saldos promedio por tipo de cuenta y comportamiento transaccional
@@ -33,7 +53,15 @@
 
 **Consulta SQL:**
 ```sql
-
+SELECT tipo_cuenta, AVG(saldo) AS saldo_promedio
+FROM cuenta
+WHERE num_cuenta IN (
+    SELECT num_cuenta
+    FROM transaccion
+    WHERE fecha >= CURRENT_DATE - INTERVAL '30 days'
+    GROUP BY num_cuenta
+)
+GROUP BY tipo_cuenta;
 ```
 
 ## Enunciado 5: Clientes con transferencias pero sin retiros en cajeros
@@ -42,5 +70,19 @@
 
 **Consulta SQL:**
 ```sql
-
+SELECT A.id_cliente, A.cedula, A.nombre
+FROM cliente A JOIN cuenta B ON A.id_cliente = B.id_cliente
+WHERE B.num_cuenta IN (
+    SELECT C.num_cuenta
+    FROM transaccion C
+    WHERE C.tipo_transaccion = 'transferencia'
+    GROUP BY C.num_cuenta
+)
+AND B.num_cuenta NOT IN (
+    SELECT C.num_cuenta
+    FROM transaccion C JOIN retiro D ON C.id_transaccion = D.id_transaccion
+    WHERE D.canal = 'cajero'
+    GROUP BY C.num_cuenta
+)
+GROUP BY A.id_cliente, A.cedula, A.nombre;
 ```
